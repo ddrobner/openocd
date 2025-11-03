@@ -153,6 +153,9 @@ endif
 if RSHIM
 DRIVERFILES += %D%/rshim.c
 endif
+if PTC
+DRIVERFILES += %D%/ptc.c
+endif
 if OSBDM
 DRIVERFILES += %D%/osbdm.c
 endif
@@ -193,6 +196,8 @@ endif
 if AM335XGPIO
 DRIVERFILES += %D%/am335xgpio.c
 endif
+
+DRIVERFILES += %D%/bitbang.o
 
 DRIVERHEADERS = \
 	%D%/bitbang.h \
