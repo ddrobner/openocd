@@ -3,36 +3,37 @@
 #include "helper/log.h"
 #include <stdint.h>
 
+#define XMC_JTAG_REG_BASE   0x8002002C  // all JTAG bits live here
 
-#ifndef TCK_ADDR
-#define TCK_ADDR 0x40000000
-#endif
-#ifndef TMS_ADDR
-#define TMS_ADDR 0x40000004
-#endif
-#ifndef TDI_ADDR
-#define TDI_ADDR 0x40000008
-#endif
-#ifndef TDO_ADDR
-#define TDO_ADDR 0x4000000C
-#endif
+// individual bit masks
+#define XMC_JTAG_EN_MASK    (1U << 0)
+#define XMC_TDI_MASK        (1U << 4)
+#define XMC_TMS_MASK        (1U << 5)
+#define XMC_TCK_MASK        (1U << 6)
+#define XMC_RESETN_MASK     (1U << 8)
+#define XMC_TDO_MASK        (1U << 16)
 
-static volatile uint32_t *const reg_tck = (uint32_t *)TCK_ADDR;
-static volatile uint32_t *const reg_tms = (uint32_t *)TMS_ADDR;
-static volatile uint32_t *const reg_tdi = (uint32_t *)TDI_ADDR;
-static volatile uint32_t *const reg_tdo = (uint32_t *)TDO_ADDR;
+static volatile uint32_t *const jtag_reg = (volatile uint32_t *)XMC_JTAG_REG_BASE;
 
 static int ptc_write(int tck, int tms, int tdi)
 {
-	*reg_tck = (uint32_t)tck;
-	*reg_tms = (uint32_t)tms;
-	*reg_tdi = (uint32_t)tdi;
+	uint32_t reg = *jtag_reg;
+
+	if(tck)
+		reg |= XMC_TCK_MASK;
+	if(tms)
+		reg |= XMC_TMS_MASK;
+	if(tdi)
+		reg |= XMC_TDI_MASK;
+
+	*jtag_reg = reg;
 	return ERROR_OK;
 }
 
 static bb_value_t ptc_read(void)
 {
-	return (*reg_tdo & 1U) ? BB_HIGH : BB_LOW;
+	return ((*jtag_reg & XMC_TDO_MASK) ?
+            BB_HIGH : BB_LOW);
 }
 
 static struct bitbang_interface ptc_bitbang = {
@@ -41,6 +42,7 @@ static struct bitbang_interface ptc_bitbang = {
 };
 
 static int ptc_execute_queue(void)
+
 {
 	return bitbang_execute_queue();
 }
@@ -53,9 +55,9 @@ static struct jtag_interface ptc_jtag_interface = {
 static int ptc_init(void)
 {
 	LOG_INFO("PTC adapter initialised");
-	LOG_INFO("  TCK=%p  TMS=%p  TDI=%p  TDO=%p",
-	         (void *)reg_tck, (void *)reg_tms,
-	         (void *)reg_tdi, (void *)reg_tdo);
+	// LOG_INFO("  TCK=%p  TMS=%p  TDI=%p  TDO=%p",
+	//         (void *)reg_tck, (void *)reg_tms,
+	//         (void *)reg_tdi, (void *)reg_tdo);
 
 	bitbang_interface = &ptc_bitbang;
 
