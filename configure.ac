@@ -491,6 +491,7 @@ AS_IF([test "x$build_rshim" = "xyes"], [
 ])
 
 AS_IF([test "x$build_ptc" = "xyes"], [
+  build_bitbang=yes
   AC_DEFINE([BUILD_PTC], [1], [1 if you wanty to build the PTC driver.])
 ],[
   AC_DEFINE([BUILD_PTC], [0], [0 if you don't want to build the PTC driver.])

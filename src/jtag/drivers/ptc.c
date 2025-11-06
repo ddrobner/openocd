@@ -1,5 +1,3 @@
-#include "jtag/interface.h"
-#include "jtag/drivers/bitbang.h"
 #include "helper/log.h"
 #include <stdint.h>
 #include <stdio.h>
@@ -8,6 +6,8 @@
 #include <unistd.h>
 #include <errno.h>
 #include <string.h>
+#include <jtag/interface.h>
+#include "bitbang.h"
 
 #define XMC_JTAG_REG_BASE   0x8002002C  // all JTAG bits live here
 #define XMC_JTAG_MAP_SIZE   0x1000
