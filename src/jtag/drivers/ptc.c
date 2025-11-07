@@ -22,15 +22,15 @@
 
 static volatile uint32_t *jtag_reg;
 
+__attribute__((unused))
 static void *map_register(off_t phys_addr, size_t size)
 {
 	int fd = open("/dev/mem", O_RDWR | O_SYNC);
 	if (fd < 0) {
-		// LOG_ERROR("PTC: cannot open /dev/mem: %s", strerror(errno));
-		return NULL;
+		LOG_ERROR("PTC: cannot open /dev/mem: %s", strerror(errno));
+		return MAP_FAILED;
 	}
 
-	/* Page-align the mapping start */
 	off_t page_base = phys_addr & ~(sysconf(_SC_PAGE_SIZE) - 1);
 	off_t page_off  = phys_addr - page_base;
 
@@ -39,8 +39,8 @@ static void *map_register(off_t phys_addr, size_t size)
 	close(fd);
 
 	if (map == MAP_FAILED) {
-		// LOG_ERROR("PTC: mmap failed: %s", strerror(errno));
-		return NULL;
+		LOG_ERROR("PTC: mmap failed: %s", strerror(errno));
+		return MAP_FAILED;
 	}
 
 	return (uint8_t *)map + page_off;
@@ -48,14 +48,25 @@ static void *map_register(off_t phys_addr, size_t size)
 
 static int ptc_write(int tck, int tms, int tdi)
 {
+	if (!jtag_reg)
+		return ERROR_FAIL;
+
 	uint32_t reg = *jtag_reg;
 
-	if(tck)
+	if (tck)
 		reg |= XMC_TCK_MASK;
-	if(tms)
+	else
+		reg &= ~XMC_TCK_MASK;
+
+	if (tms)
 		reg |= XMC_TMS_MASK;
-	if(tdi)
+	else
+		reg &= ~XMC_TMS_MASK;
+
+	if (tdi)
 		reg |= XMC_TDI_MASK;
+	else
+		reg &= ~XMC_TDI_MASK;
 
 	*jtag_reg = reg;
 	return ERROR_OK;
@@ -63,10 +74,13 @@ static int ptc_write(int tck, int tms, int tdi)
 
 static bb_value_t ptc_read(void)
 {
-	return ((*jtag_reg & XMC_TDO_MASK) ?
-            BB_HIGH : BB_LOW);
+	if (!jtag_reg)
+		return BB_LOW;
+
+	return ((*jtag_reg & XMC_TDO_MASK) ? BB_HIGH : BB_LOW);
 }
 
+__attribute__((unused))
 static struct bitbang_interface ptc_bitbang = {
 	.write = ptc_write,
 	.read  = ptc_read,
@@ -86,28 +100,32 @@ static struct jtag_interface ptc_jtag_interface = {
 
 static int ptc_init(void)
 {
-    fprintf(stderr, "PTC: init() starting\n");
+	fprintf(stderr, "PTC: init() starting\n");
 
-    if (!bitbang_interface)
-        bitbang_interface = calloc(1, sizeof(struct bitbang_interface));
 
-    /* Map registers */
-    int fd = open("/dev/mem", O_RDWR | O_SYNC);
-    if (fd < 0) { perror("open"); return ERROR_FAIL; }
+	if (!bitbang_interface)
+		bitbang_interface = calloc(1, sizeof(*bitbang_interface));
+	
+	if (!bitbang_interface) {
+		LOG_ERROR("PTC: failed to allocate bitbang_interface");
+		return ERROR_FAIL;
+	}
 
-    off_t page = XMC_JTAG_REG_BASE & ~0xFFF;
-    off_t off  = XMC_JTAG_REG_BASE - page;
-    void *map = mmap(NULL, 0x1000, PROT_READ|PROT_WRITE, MAP_SHARED, fd, page);
-    close(fd);
-    if (map == MAP_FAILED) { perror("mmap"); return ERROR_FAIL; }
-    jtag_reg = (uint32_t *)((uint8_t *)map + off);
+	if (!bitbang_interface)
+		bitbang_interface = calloc(1, sizeof(struct bitbang_interface));
 
-    /* Register callbacks */
-    bitbang_interface->write = ptc_write;
-    bitbang_interface->read  = ptc_read;
+	bitbang_interface->write = ptc_write;
+	bitbang_interface->read  = ptc_read;
 
-    fprintf(stderr, "PTC: init() done, jtag_reg=%p\n", (void*)jtag_reg);
-    return ERROR_OK;
+	jtag_reg = map_register(XMC_JTAG_REG_BASE, XMC_JTAG_MAP_SIZE);
+	if (jtag_reg == MAP_FAILED || !jtag_reg) {
+		LOG_ERROR("PTC: unable to map registers");
+		return ERROR_FAIL;
+	}
+	fprintf(stderr, "PTC: mapped jtag_reg=%p\n", (void *)jtag_reg);
+
+	LOG_INFO("PTC bit‑bang adapter initialised");
+	return ERROR_OK;
 }
 
 
