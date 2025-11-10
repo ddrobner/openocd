@@ -148,6 +148,9 @@ extern struct adapter_driver am335xgpio_adapter_driver;
 #if BUILD_PTC == 1
 extern struct adapter_driver ptc_adapter_driver;
 #endif
+#if BUILD_PTCDUMMY == 1
+extern struct adapter_driver ptc_dummy_adapter_driver;
+#endif
 
 /**
  * The list of built-in JTAG interfaces, containing entries for those

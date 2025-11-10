@@ -156,6 +156,9 @@ m4_define([LIBJAYLINK_ADAPTERS],
 m4_define([PTC_ADAPTERS],
   [[[ptc], [PTC Programmer], [PTC]]])
 
+m4_define([PTC_DUMMY],
+  [[[ptcdummy], [PTC Dummy Adapter], [PTCDUMMY]]])
+
 m4_define([PCIE_ADAPTERS],
 	[[[xlnx_pcie_xvc], [Xilinx XVC/PCIe], [XLNX_PCIE_XVC]]])
 
@@ -251,6 +254,10 @@ AC_ARG_ENABLE([ptc],
   AS_HELP_STRING([--enable-ptc], [Enable building the PTC driver]),
   [build_ptc=$enableval], [build_ptc=no])
 
+AC_ARG_ENABLE([ptcdummy],
+  AS_HELP_STRING([--enable-ptcdummy], [Enable building the dummy PTC driver for debugging purposes]),
+  [build_ptcdummy=$enableval], [build_ptcdummy=no])
+
 m4_define([AC_ARG_ADAPTERS], [
   m4_foreach([adapter], [$1],
 	[AC_ARG_ENABLE(ADAPTER_OPT([adapter]),
@@ -269,7 +276,8 @@ AC_ARG_ADAPTERS([
   LIBGPIOD_ADAPTERS,
   SERIAL_PORT_ADAPTERS,
   LIBJAYLINK_ADAPTERS,
-  PTC_ADAPTERS
+  PTC_ADAPTERS,
+  PTC_DUMMY,
   ],[auto])
 
 AC_ARG_ADAPTERS([DEPRECATED_USB1_ADAPTERS],[no])
@@ -492,9 +500,16 @@ AS_IF([test "x$build_rshim" = "xyes"], [
 
 AS_IF([test "x$build_ptc" = "xyes"], [
   build_bitbang=yes
-  AC_DEFINE([BUILD_PTC], [1], [1 if you wanty to build the PTC driver.])
+  AC_DEFINE([BUILD_PTC], [1], [1 if you want to build the PTC driver.])
 ],[
   AC_DEFINE([BUILD_PTC], [0], [0 if you don't want to build the PTC driver.])
+])
+
+AS_IF([test "x$build_ptcdummy" = "xyes"], [
+  build_bitbang=yes
+  AC_DEFINE([BUILD_PTCDUMMY], [1], [1 if you want to build the PTC dummy driver.])
+],[
+  AC_DEFINE([BUILD_PTCDUMMY], [0], [0 if you don't want to build the PTC dumym driver.])
 ])
 
 AS_IF([test "x$build_dummy" = "xyes"], [
@@ -707,6 +722,7 @@ PROCESS_ADAPTERS([LIBFTDI_USB1_ADAPTERS], ["x$use_libftdi" = "xyes" -a "x$use_li
 PROCESS_ADAPTERS([LIBGPIOD_ADAPTERS], ["x$use_libgpiod" = "xyes"], [libgpiod])
 PROCESS_ADAPTERS([LIBJAYLINK_ADAPTERS], ["x$use_internal_libjaylink" = "xyes" -o "x$use_libjaylink" = "xyes"], [libjaylink-0.2])
 PROCESS_ADAPTERS([PTC_ADAPTERS], [true], [])
+PROCESS_ADAPTERS([PTC_DUMMY], [true], [])
 
 AS_IF([test "x$enable_linuxgpiod" != "xno"], [
   build_bitbang=yes
@@ -776,6 +792,7 @@ AM_CONDITIONAL([USE_HIDAPI], [test "x$use_hidapi" = "xyes"])
 AM_CONDITIONAL([USE_LIBJAYLINK], [test "x$use_libjaylink" = "xyes"])
 AM_CONDITIONAL([RSHIM], [test "x$build_rshim" = "xyes"])
 AM_CONDITIONAL([PTC], [test "x$build_ptc" = "xyes"])
+AM_CONDITIONAL([PTCDUMMY], [test "x$build_ptcdummy" = "xyes"])
 AM_CONDITIONAL([HAVE_CAPSTONE], [test "x$enable_capstone" != "xno"])
 
 AM_CONDITIONAL([INTERNAL_JIMTCL], [test "x$use_internal_jimtcl" = "xyes"])
@@ -849,7 +866,7 @@ m4_foreach([adapter], [USB1_ADAPTERS,
 	HIDAPI_ADAPTERS, HIDAPI_USB1_ADAPTERS, LIBFTDI_ADAPTERS,
 	LIBFTDI_USB1_ADAPTERS,
 	LIBGPIOD_ADAPTERS,
-	LIBJAYLINK_ADAPTERS, PTC_ADAPTERS, PCIE_ADAPTERS, SERIAL_PORT_ADAPTERS,
+	LIBJAYLINK_ADAPTERS, PTC_ADAPTERS, PCIE_ADAPTERS, SERIAL_PORT_ADAPTERS, PTC_DUMMY,
 	OPTIONAL_LIBRARIES],
 	[s=m4_format(["%-40s"], ADAPTER_DESC([adapter]))
 	AS_CASE([$ADAPTER_VAR([adapter])],
