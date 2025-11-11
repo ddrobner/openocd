@@ -9,8 +9,10 @@
 #include <jtag/interface.h>
 #include "bitbang.h"
 
-#define XMC_JTAG_REG_BASE   0x8002002C  // all JTAG bits live here
+#define XMC_JTAG_REG_BASE   0x8002002C  // TCK/TMS/TDI
 #define XMC_JTAG_MAP_SIZE   0x1000
+#define XMC_TDO_OFFSET  (0x8002012C - 0x8002002C) // TDO
+#define XMC_TDO_MASK        (1U << 4)
 
 // individual bit masks
 #define XMC_JTAG_EN_MASK    (1U << 0)
@@ -18,7 +20,6 @@
 #define XMC_TMS_MASK        (1U << 5)
 #define XMC_TCK_MASK        (1U << 6)
 #define XMC_RESETN_MASK     (1U << 8)
-#define XMC_TDO_MASK        (1U << 16)
 
 static volatile uint32_t *jtag_reg;
 
@@ -88,10 +89,8 @@ static int ptc_write(int tck, int tms, int tdi)
 
 static bb_value_t ptc_read(void)
 {
-	if (!jtag_reg)
-		return BB_LOW;
-
-	return ((*jtag_reg & XMC_TDO_MASK) ? BB_HIGH : BB_LOW);
+    volatile uint32_t *tdo_reg = jtag_reg + (XMC_TDO_OFFSET / sizeof(uint32_t));
+    return (*tdo_reg & XMC_TDO_MASK) ? BB_HIGH : BB_LOW;
 }
 
 __attribute__((unused))
