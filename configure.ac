@@ -722,7 +722,6 @@ PROCESS_ADAPTERS([LIBFTDI_USB1_ADAPTERS], ["x$use_libftdi" = "xyes" -a "x$use_li
 PROCESS_ADAPTERS([LIBGPIOD_ADAPTERS], ["x$use_libgpiod" = "xyes"], [libgpiod])
 PROCESS_ADAPTERS([LIBJAYLINK_ADAPTERS], ["x$use_internal_libjaylink" = "xyes" -o "x$use_libjaylink" = "xyes"], [libjaylink-0.2])
 PROCESS_ADAPTERS([PTC_ADAPTERS], [true], [])
-PROCESS_ADAPTERS([PTC_DUMMY], [true], [])
 
 AS_IF([test "x$enable_linuxgpiod" != "xno"], [
   build_bitbang=yes
