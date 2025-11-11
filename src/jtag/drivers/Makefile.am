@@ -156,6 +156,9 @@ endif
 if PTC
 DRIVERFILES += %D%/ptc.c
 endif
+if PTCDUMMY
+DRIVERFILES += %D%/ptc_dummy.c
+endif
 if OSBDM
 DRIVERFILES += %D%/osbdm.c
 endif

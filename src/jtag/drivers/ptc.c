@@ -131,10 +131,12 @@ static int ptc_init(void)
 
 __attribute__((weak)) struct bitbang_interface *bitbang_interface;
 
-/* -------------------------------------------------------------------------- */
+__attribute__((unused))
+static const char * const ptc_transports[] = { "jtag", NULL };
 
 struct adapter_driver ptc_adapter_driver = {
 	.name     = "ptc",
+	.transports = ptc_transports,
 	.init     = ptc_init,
 	.jtag_ops = &ptc_jtag_interface,
 };

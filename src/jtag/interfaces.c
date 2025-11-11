@@ -274,5 +274,8 @@ struct adapter_driver *adapter_drivers[] = {
 #if BUILD_PTC == 1
 		&ptc_adapter_driver,
 #endif
+#if BUILD_PTCDUMMY == 1
+		&ptc_dummy_adapter_driver,
+#endif
 		NULL,
 	};
