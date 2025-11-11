@@ -46,6 +46,20 @@ static void *map_register(off_t phys_addr, size_t size)
 	return (uint8_t *)map + page_off;
 }
 
+static int ptc_speed(int speed)
+{
+    (void)speed;
+    return ERROR_OK;
+}
+
+static int ptc_khz(int speed, int *khz)
+{
+    (void)speed;
+    if (khz)
+        *khz = 0;  /* 0 = fixed/unknown speed */
+    return ERROR_OK;
+}
+
 static int ptc_write(int tck, int tms, int tdi)
 {
 	if (!jtag_reg)
@@ -92,12 +106,47 @@ static int ptc_execute_queue(void)
 	return bitbang_execute_queue();
 }
 
+static int ptc_reset(int trst, int srst)
+{
+    if (!jtag_reg)
+        return ERROR_FAIL;
+
+    uint32_t reg = *jtag_reg;
+
+    /* TRST not supported, but keep logic symmetrical */
+    (void)trst;
+
+    if (srst)
+        reg &= ~XMC_RESETN_MASK;  // assert reset (active low)
+    else
+        reg |= XMC_RESETN_MASK;   // deassert/reset released
+
+    *jtag_reg = reg;
+    return ERROR_OK;
+}
+
 static struct jtag_interface ptc_jtag_interface = {
 	.supported     = DEBUG_CAP_TMS_SEQ,
 	.execute_queue = ptc_execute_queue,
 };
 
+static int ptc_init(void)
+{
+    fprintf(stderr, "PTC: init() starting\n");
 
+    bitbang_interface = &ptc_bitbang;
+
+    jtag_reg = map_register(XMC_JTAG_REG_BASE, XMC_JTAG_MAP_SIZE);
+    if (jtag_reg == MAP_FAILED || !jtag_reg) {
+        LOG_ERROR("PTC: unable to map registers");
+        return ERROR_FAIL;
+    }
+
+    LOG_INFO("PTC bit‑bang adapter initialised, reg=%p", jtag_reg);
+    return ERROR_OK;
+}
+
+/*
 static int ptc_init(void)
 {
 	fprintf(stderr, "PTC: init() starting\n");
@@ -127,6 +176,7 @@ static int ptc_init(void)
 	LOG_INFO("PTC bit‑bang adapter initialised");
 	return ERROR_OK;
 }
+*/
 
 
 __attribute__((weak)) struct bitbang_interface *bitbang_interface;
@@ -138,5 +188,9 @@ struct adapter_driver ptc_adapter_driver = {
 	.name     = "ptc",
 	.transports = ptc_transports,
 	.init     = ptc_init,
+	.reset	  = ptc_reset,
+	.quit	  = NULL,
+	.speed	  = ptc_speed,
+	.khz	  = ptc_khz,
 	.jtag_ops = &ptc_jtag_interface,
 };
