@@ -79,7 +79,7 @@ __attribute__((weak)) struct bitbang_interface *bitbang_interface;
 /* -------------------------------------------------------------------------- */
 
 struct adapter_driver ptc_dummy_adapter_driver = {
-	.name     = "ptc",
+	.name     = "ptc_dummy",
 	.init     = ptc_init,
 	.jtag_ops = &ptc_jtag_interface,
 };
