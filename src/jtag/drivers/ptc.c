@@ -22,6 +22,7 @@
 #define XMC_RESETN_MASK     (1U << 8)
 
 static volatile uint32_t *jtag_reg;
+static int ptc_delay_us = 0;
 
 __attribute__((unused))
 static void *map_register(off_t phys_addr, size_t size)
@@ -47,26 +48,14 @@ static void *map_register(off_t phys_addr, size_t size)
 	return (uint8_t *)map + page_off;
 }
 
-static int ptc_speed(int speed)
-{
-    (void)speed;
-    return ERROR_OK;
-}
-
-static int ptc_khz(int speed, int *khz)
-{
-    (void)speed;
-    if (khz)
-        *khz = 0;  /* 0 = fixed/unknown speed */
-    return ERROR_OK;
-}
-
 static int ptc_write(int tck, int tms, int tdi)
 {
 	if (!jtag_reg)
 		return ERROR_FAIL;
 
 	uint32_t reg = *jtag_reg;
+	if (ptc_delay_us > 0)
+		usleep(ptc_delay_us);
 
 	if (tck)
 		reg |= XMC_TCK_MASK;
@@ -87,8 +76,39 @@ static int ptc_write(int tck, int tms, int tdi)
 	return ERROR_OK;
 }
 
+__attribute__((unused))
+static int ptc_speed(int khz)
+{
+    /* "khz" is user argument: adapter speed <value> */
+    if (khz <= 0)
+        ptc_delay_us = 10;   // slowest
+    else if (khz < 10)
+        ptc_delay_us = 5;
+    else if (khz < 100)
+        ptc_delay_us = 2;
+    else
+        ptc_delay_us = 0;    // fastest (no sleep)
+    LOG_INFO("PTC: delay set to %d µs for adapter speed %d", ptc_delay_us, khz);
+    return ERROR_OK;
+}
+
+__attribute__((unused))
+static int ptc_khz(int speed, int *khz)
+{
+    *khz = speed;
+    return ERROR_OK;
+}
+
+static int ptc_speed_div(int khz, int *speed)
+{
+    *speed = khz;
+    return ERROR_OK;
+}
+
 static bb_value_t ptc_read(void)
 {
+	if (ptc_delay_us > 0)
+		usleep(ptc_delay_us);
     volatile uint32_t *tdo_reg = jtag_reg + (XMC_TDO_OFFSET / sizeof(uint32_t));
     return (*tdo_reg & XMC_TDO_MASK) ? BB_HIGH : BB_LOW;
 }
@@ -145,39 +165,6 @@ static int ptc_init(void)
     return ERROR_OK;
 }
 
-/*
-static int ptc_init(void)
-{
-	fprintf(stderr, "PTC: init() starting\n");
-
-
-	if (!bitbang_interface)
-		bitbang_interface = calloc(1, sizeof(*bitbang_interface));
-	
-	if (!bitbang_interface) {
-		LOG_ERROR("PTC: failed to allocate bitbang_interface");
-		return ERROR_FAIL;
-	}
-
-	if (!bitbang_interface)
-		bitbang_interface = calloc(1, sizeof(struct bitbang_interface));
-
-	bitbang_interface->write = ptc_write;
-	bitbang_interface->read  = ptc_read;
-
-	jtag_reg = map_register(XMC_JTAG_REG_BASE, XMC_JTAG_MAP_SIZE);
-	if (jtag_reg == MAP_FAILED || !jtag_reg) {
-		LOG_ERROR("PTC: unable to map registers");
-		return ERROR_FAIL;
-	}
-	fprintf(stderr, "PTC: mapped jtag_reg=%p\n", (void *)jtag_reg);
-
-	LOG_INFO("PTC bit‑bang adapter initialised");
-	return ERROR_OK;
-}
-*/
-
-
 __attribute__((weak)) struct bitbang_interface *bitbang_interface;
 
 __attribute__((unused))
@@ -186,10 +173,11 @@ static const char * const ptc_transports[] = { "jtag", NULL };
 struct adapter_driver ptc_adapter_driver = {
 	.name     = "ptc",
 	.transports = ptc_transports,
+	.speed		= ptc_speed,
+	.khz		= ptc_khz,
+	.speed_div	= ptc_speed_div,
 	.init     = ptc_init,
 	.reset	  = ptc_reset,
 	.quit	  = NULL,
-	.speed	  = ptc_speed,
-	.khz	  = ptc_khz,
 	.jtag_ops = &ptc_jtag_interface,
 };
