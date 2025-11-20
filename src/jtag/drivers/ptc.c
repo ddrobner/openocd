@@ -161,6 +161,10 @@ static int ptc_init(void)
         return ERROR_FAIL;
     }
 
+	uint32_t reg = *jtag_reg;
+	reg |= XMC_JTAG_EN_MASK;
+	*jtag_reg = reg;
+
     LOG_INFO("PTC bit‑bang adapter initialised, reg=%p", jtag_reg);
     return ERROR_OK;
 }
