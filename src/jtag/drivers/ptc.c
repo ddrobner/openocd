@@ -12,14 +12,17 @@
 #define XMC_JTAG_REG_BASE   0x8002002C  // TCK/TMS/TDI
 #define XMC_JTAG_MAP_SIZE   0x1000
 #define XMC_TDO_OFFSET  (0x8002012C - 0x8002002C) // TDO
-#define XMC_TDO_MASK        (1U << 4)
+#define XMC_TDO_N_MASK        (1U << 16)
 
 // individual bit masks
 #define XMC_JTAG_EN_MASK    (1U << 0)
-#define XMC_TDI_MASK        (1U << 4)
-#define XMC_TMS_MASK        (1U << 5)
-#define XMC_TCK_MASK        (1U << 6)
+#define XMC_TDI_N_MASK        (1U << 6)
+#define XMC_TMS_MASK        (1U << 4)
+#define XMC_TCK_MASK        (1U << 5)
 #define XMC_RESETN_MASK     (1U << 8)
+
+#define XMC_BOOT_WAIT	50000
+#define XMC_RESET_WAIT	1000
 
 static volatile uint32_t *jtag_reg;
 static int ptc_delay_us = 0;
@@ -68,9 +71,9 @@ static int ptc_write(int tck, int tms, int tdi)
 		reg &= ~XMC_TMS_MASK;
 
 	if (tdi)
-		reg |= XMC_TDI_MASK;
+		reg &= ~XMC_TDI_N_MASK;
 	else
-		reg &= ~XMC_TDI_MASK;
+		reg |= XMC_TDI_N_MASK;
 
 	*jtag_reg = reg;
 	return ERROR_OK;
@@ -110,7 +113,8 @@ static bb_value_t ptc_read(void)
 	if (ptc_delay_us > 0)
 		usleep(ptc_delay_us);
     volatile uint32_t *tdo_reg = jtag_reg + (XMC_TDO_OFFSET / sizeof(uint32_t));
-    return (*tdo_reg & XMC_TDO_MASK) ? BB_HIGH : BB_LOW;
+	uint32_t val = *tdo_reg;
+	return (val & XMC_TDO_N_MASK) ? BB_LOW : BB_HIGH;
 }
 
 __attribute__((unused))
@@ -161,12 +165,44 @@ static int ptc_init(void)
         return ERROR_FAIL;
     }
 
+	// get JTAG out of tri-state and enable XMC JTAG control from the enclustra
 	uint32_t reg = *jtag_reg;
 	reg |= XMC_JTAG_EN_MASK;
+	reg |= XMC_RESETN_MASK;
 	*jtag_reg = reg;
 
+	// wait for a bit to ensure the XMC is up and running 
+	usleep(XMC_BOOT_WAIT);
+
     LOG_INFO("PTC bit‑bang adapter initialised, reg=%p", jtag_reg);
+
     return ERROR_OK;
+}
+
+static int ptc_quit(void)
+{
+	if (!jtag_reg)
+		return ERROR_OK;
+
+	uint32_t reg = *jtag_reg;
+
+	// reset XMC
+	reg &= ~XMC_RESETN_MASK;
+	*jtag_reg = reg;
+	// wait for a bit
+	usleep(XMC_RESET_WAIT);
+
+	// bring reset high so XMC boots
+	reg |= XMC_RESETN_MASK;
+	*jtag_reg = reg;
+	usleep(XMC_RESET_WAIT);
+
+	// put JTAG lines back into tri-state
+	reg &= ~XMC_JTAG_EN_MASK;
+	*jtag_reg = reg;
+
+	LOG_INFO("PTC: JTAG bridge disabled, pins tri‑stated");
+	return ERROR_OK;
 }
 
 __attribute__((weak)) struct bitbang_interface *bitbang_interface;
@@ -182,6 +218,6 @@ struct adapter_driver ptc_adapter_driver = {
 	.speed_div	= ptc_speed_div,
 	.init     = ptc_init,
 	.reset	  = ptc_reset,
-	.quit	  = NULL,
+	.quit	  = ptc_quit,
 	.jtag_ops = &ptc_jtag_interface,
 };
