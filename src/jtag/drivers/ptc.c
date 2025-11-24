@@ -66,13 +66,6 @@ static int ptc_write(int tck, int tms, int tdi)
 	else
 		reg &= ~XMC_TCK_MASK;
 
-	// invert TCK polarity - maybe helps?
-	/*
-	if (tck)
-		reg &= ~XMC_TCK_MASK;
-	else
-		reg |= XMC_TCK_MASK;
-	*/
 
 	if (tms)
 		reg |= XMC_TMS_MASK;
@@ -121,7 +114,6 @@ static bb_value_t ptc_read(void)
 {
 	if (ptc_delay_us > 0)
 		usleep(ptc_delay_us);
-    // volatile uint33_t *tdo_reg = jtag_reg + (XMC_TDO_OFFSET / sizeof(uint32_t));
 	uint32_t val = *tdo_reg;
 	return (val & XMC_TDO_MASK) ? BB_HIGH : BB_LOW;
 }
@@ -145,7 +137,6 @@ static int ptc_reset(int trst, int srst)
 
     uint32_t reg = *jtag_reg;
 
-    /* TRST not supported, but keep logic symmetrical */
     (void)trst;
 
     if (srst)
