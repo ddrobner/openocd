@@ -60,10 +60,18 @@ static int ptc_write(int tck, int tms, int tdi)
 	if (ptc_delay_us > 0)
 		usleep(ptc_delay_us);
 
+	/*
 	if (tck)
 		reg |= XMC_TCK_MASK;
 	else
 		reg &= ~XMC_TCK_MASK;
+	*/
+
+	// invert TCK polarity - maybe helps?
+	if (tck)
+		reg &= ~XMC_TCK_MASK;
+	else
+		reg |= XMC_TCK_MASK;
 
 	if (tms)
 		reg |= XMC_TMS_MASK;
