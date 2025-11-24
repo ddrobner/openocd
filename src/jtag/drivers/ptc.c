@@ -12,11 +12,11 @@
 #define XMC_JTAG_REG_BASE   0x8002002C  // TCK/TMS/TDI
 #define XMC_JTAG_MAP_SIZE   0x1000
 #define XMC_TDO_OFFSET  (0x8002012C - 0x8002002C) // TDO
-#define XMC_TDO_N_MASK        (1U << 16)
+#define XMC_TDO_MASK        (1U << 16)
 
 // individual bit masks
 #define XMC_JTAG_EN_MASK    (1U << 0)
-#define XMC_TDI_N_MASK        (1U << 6)
+#define XMC_TDI_MASK        (1U << 6)
 #define XMC_TMS_MASK        (1U << 4)
 #define XMC_TCK_MASK        (1U << 5)
 #define XMC_RESETN_MASK     (1U << 8)
@@ -25,6 +25,7 @@
 #define XMC_RESET_WAIT	1000
 
 static volatile uint32_t *jtag_reg;
+static volatile uint32_t *tdo_reg;
 static int ptc_delay_us = 0;
 
 __attribute__((unused))
@@ -60,18 +61,18 @@ static int ptc_write(int tck, int tms, int tdi)
 	if (ptc_delay_us > 0)
 		usleep(ptc_delay_us);
 
-	/*
 	if (tck)
 		reg |= XMC_TCK_MASK;
 	else
 		reg &= ~XMC_TCK_MASK;
-	*/
 
 	// invert TCK polarity - maybe helps?
+	/*
 	if (tck)
 		reg &= ~XMC_TCK_MASK;
 	else
 		reg |= XMC_TCK_MASK;
+	*/
 
 	if (tms)
 		reg |= XMC_TMS_MASK;
@@ -79,9 +80,9 @@ static int ptc_write(int tck, int tms, int tdi)
 		reg &= ~XMC_TMS_MASK;
 
 	if (tdi)
-		reg &= ~XMC_TDI_N_MASK;
+ 	   reg |= XMC_TDI_MASK;
 	else
-		reg |= XMC_TDI_N_MASK;
+ 	   reg &= ~XMC_TDI_MASK;
 
 	*jtag_reg = reg;
 	return ERROR_OK;
@@ -120,9 +121,9 @@ static bb_value_t ptc_read(void)
 {
 	if (ptc_delay_us > 0)
 		usleep(ptc_delay_us);
-    volatile uint32_t *tdo_reg = jtag_reg + (XMC_TDO_OFFSET / sizeof(uint32_t));
+    // volatile uint33_t *tdo_reg = jtag_reg + (XMC_TDO_OFFSET / sizeof(uint32_t));
 	uint32_t val = *tdo_reg;
-	return (val & XMC_TDO_N_MASK) ? BB_LOW : BB_HIGH;
+	return (val & XMC_TDO_MASK) ? BB_HIGH : BB_LOW;
 }
 
 __attribute__((unused))
@@ -172,6 +173,8 @@ static int ptc_init(void)
         LOG_ERROR("PTC: unable to map registers");
         return ERROR_FAIL;
     }
+
+	tdo_reg = jtag_reg + (XMC_TDO_OFFSET / sizeof(uint32_t));
 
 	// get JTAG out of tri-state and enable XMC JTAG control from the enclustra
 	uint32_t reg = *jtag_reg;
