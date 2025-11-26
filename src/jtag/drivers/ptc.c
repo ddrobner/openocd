@@ -189,19 +189,20 @@ static int ptc_quit(void)
 	uint32_t reg = *jtag_reg;
 
 	// reset XMC
-	reg &= ~XMC_RESETN_MASK;
+	reg |= XMC_RESETN_MASK;
 	*jtag_reg = reg;
 	// wait for a bit
 	usleep(XMC_RESET_WAIT);
 
 	// bring reset high so XMC boots
-	reg |= XMC_RESETN_MASK;
+	reg &= ~XMC_RESETN_MASK;
 	*jtag_reg = reg;
 	usleep(XMC_RESET_WAIT);
 
 	// put JTAG lines back into tri-state
 	reg &= ~XMC_JTAG_EN_MASK;
 	*jtag_reg = reg;
+
 
 	LOG_INFO("PTC: JTAG bridge disabled, pins tri‑stated");
 	return ERROR_OK;
